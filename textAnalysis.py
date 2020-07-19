@@ -55,55 +55,67 @@ import heapq
 
 
 class TextAnalyzer:
-    def __init__(self, folder=None):
+    def __init__(self, filepath=None):
         self.words = {}
         self.totalNumberOfWords = 0
         self.totalUniqueWords = 0
         self.numChapters = 0
         self.mostFrequentWords = []
         self.leastFrequentWords = []
-        self.filepath = ""
+        self.filepath = filepath
+        self.fullText = []
 
-        if folder is not None:
-            self.buildWordMap(folder)
-            self.buildMinMaxWordHeaps()
+        if filepath is not None:
+            self.readBook(filepath)
 
-        
-    def buildWordMap(self, filepath):
+
+    def readBook(self, filepath):
         """
-        'filepath' is a string which specifies the filepath to a folder. This folder
-        contains a txt file for each chapter of the book.
+        Initializes the word map, sentence trie, mostFrequentWords heap, and leastFrequentWords heap.
         """
         self.filepath = filepath
-
+        
         for root, directories, files in os.walk(filepath):
             self.numChapters = len(files)
+            self.fullText = [""] * self.numChapters
 
             for filename in files:
                 chapterNumber = int(re.findall(r'\d+', filename)[0])
 
                 with open(filepath + "/" + filename) as chapterFile:
-                    chapterWords = chapterFile.read().replace('\n', ' ') \
-                        .replace('"', '').replace('.','').replace('!','') \
-                        .replace('?','').replace(',','').replace(':','') \
-                        .replace('--'," ").replace('_'," ").split(" ")
+                    chapterText = chapterFile.read().replace('\n', ' ')
+                    self.fullText[chapterNumber] = chapterText
+                    self.buildWordMap(chapterNumber, chapterText)
 
-                    for i in range(len(chapterWords)):
-                        if chapterWords[i] != " " and chapterWords[i] != "":
-                            if chapterWords[i] not in self.words:
-                                self.totalUniqueWords += 1
-                                self.words[chapterWords[i]] = {
-                                    "frequency" : 0,
-                                    "frequencyByChapter" : [0] * self.numChapters,
-                                    "followedBy" : []
-                                }
+        self.buildMinMaxWordHeaps()
 
-                            self.words[chapterWords[i]]["frequencyByChapter"][chapterNumber] += 1
-                            self.words[chapterWords[i]]["frequency"] += 1
-                            self.totalNumberOfWords += 1
-                            
-                            if i != len(chapterWords) - 1 and chapterWords[i+1] != " " and chapterWords[i+1] != "":
-                                self.words[chapterWords[i]]["followedBy"].append([chapterWords[i+1], chapterNumber])
+
+    def buildWordMap(self, chapterNumber, chapterText):
+        """
+        'filepath' is a string which specifies the filepath to a folder. This folder
+        contains a txt file for each chapter of the book.
+        """
+
+        chapterWords = chapterText.replace('"', '').replace('.','').replace('!','') \
+            .replace('?','').replace(',','').replace(':','') \
+            .replace('--'," ").replace('_'," ").split(" ")
+
+        for i in range(len(chapterWords)):
+            if chapterWords[i] != " " and chapterWords[i] != "":
+                if chapterWords[i] not in self.words:
+                    self.totalUniqueWords += 1
+                    self.words[chapterWords[i]] = {
+                        "frequency" : 0,
+                        "frequencyByChapter" : [0] * self.numChapters,
+                        "followedBy" : []
+                    }
+
+                self.words[chapterWords[i]]["frequencyByChapter"][chapterNumber] += 1
+                self.words[chapterWords[i]]["frequency"] += 1
+                self.totalNumberOfWords += 1
+                
+                if i != len(chapterWords) - 1 and chapterWords[i+1] != " " and chapterWords[i+1] != "":
+                    self.words[chapterWords[i]]["followedBy"].append([chapterWords[i+1], chapterNumber])
     
     
     def buildMinMaxWordHeaps(self):
@@ -141,6 +153,9 @@ class TextAnalyzer:
         Returns a list of 2-element-lists of the 20 most frequently used words, 
         along with the word's frequency. Ignores the 'numWords' most frequently used English words.
         """
+
+        if numWords > 1000:
+            numWords = 100
 
         mostFrequentEnglishWords = self.getMostFrequentEnglishWords(numWords)
 
@@ -199,8 +214,9 @@ class TextAnalyzer:
         Returns a list of chapters that contain the quote.
         """
 
+        chapters = []
+        
         for root, directories, files in os.walk(self.filepath):
-            self.numChapters = len(files)
 
             for filename in files:
                 chapterNumber = int(re.findall(r'\d+', filename)[0])
@@ -243,38 +259,29 @@ class TextAnalyzer:
 
         bestMatchingQuote = [-1, -1, "fooBar"] # bestMatchingQuote is [score, chapter, quote]
 
-        for root, directories, files in os.walk(self.filepath):
-            self.numChapters = len(files)
+        for i in range(len(self.fullText)):
+            start = 0
+            end = 2*len(quote) - 1
 
-            for filename in files:
-                chapterNumber = int(re.findall(r'\d+', filename)[0])
+            while end < len(self.fullText[i]):
+                wordChunk = self.fullText[i][start : end]
+                wordChunkList = wordChunk.lower().replace('"', '').replace('.','') \
+                    .replace('!','').replace('?','').replace(',','').replace(':','') \
+                    .replace('--'," ").replace('_'," ").split(" ")
+                
+                wordChunkScore = 0
 
-                with open(self.filepath + "/" + filename) as chapterFile:
-                    chapterWords = chapterFile.read().replace('\n', ' ')
+                for j in range(len(quoteList)):
+                    if quoteList[j] in wordChunkList:
+                        wordChunkScore += 1
+                    if j < len(wordChunkList) and quoteList[j] == wordChunkList[j]:
+                        wordChunkScore += 2
 
-                    start = 0
-                    end = 2*len(quote) - 1
-                    count = 0
-                    while end < len(chapterWords):
-                        wordChunk = chapterWords[start : end]
-                        wordChunkList = wordChunk.lower().replace('"', '').replace('.','') \
-                            .replace('!','').replace('?','').replace(',','').replace(':','') \
-                            .replace('--'," ").replace('_'," ").split(" ")
-                        
-                        wordChunkScore = 0
+                if wordChunkScore > bestMatchingQuote[0]:
+                    bestMatchingQuote = [wordChunkScore, wordChunk, i]
 
-                        for i in range(len(quoteList)):
-                            if quoteList[i] in wordChunkList:
-                                wordChunkScore += 1
-                            if i < len(wordChunkList) and quoteList[i] == wordChunkList[i]:
-                                wordChunkScore += 2
-
-                        if wordChunkScore > bestMatchingQuote[0]:
-                            bestMatchingQuote = [wordChunkScore, wordChunk, chapterNumber]
-
-                        start += 1
-                        end += 1
-                        count += 1
+                start += 1
+                end += 1
 
         return [bestMatchingQuote[1], bestMatchingQuote[2]]
 
@@ -412,7 +419,7 @@ class SentenceTrie:
 
 
 if __name__ == "__main__":
-    # myBook = TextAnalyzer("./ThePictureOfDorianGray")
+    myBook = TextAnalyzer("./ThePictureOfDorianGray")
 
     # print("Number of words:" , myBook.getTotalNumberOfWords())
     # print("Number of unique words:" , myBook.getTotalUniqueWords())
@@ -427,13 +434,13 @@ if __name__ == "__main__":
     #     myBook.getChapterQuoteAppears("Dorian Gray is to me simply a motive in art.")
     # )
     # print("Generated sentence:" , myBook.generateSentence())
-    # print(myBook.findClosestMatchingQuote("eternal pathos of the human tragedy"))
+    print(myBook.findClosestMatchingQuote("eternal pathos of the human tragedy"))
 
-    sentences = SentenceTrie()
-    sentences.add("hello world!")
-    sentences.add("hello everyone in the world?")
-    sentences.add("hello world everywhere...")
-    sentences.add("hello, world")
-    sentences.print()
+    # sentences = SentenceTrie()
+    # sentences.add("hello world!")
+    # sentences.add("hello everyone in the world?")
+    # sentences.add("hello world everywhere...")
+    # sentences.add("hello, world")
+    # sentences.print()
 
-    # myBook.plotFrequencyOfWords(["young", "old", "life", "death"])
+    myBook.plotFrequencyOfWords(["eyes"])
