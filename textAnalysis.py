@@ -1,51 +1,3 @@
-"""
-HashMap of Words
-    word: {
-        frequency: # sum of frequencyByChapter
-        frequencyByChapter: [0,15,6] # a list of the word's frequency in each chapter of the book
-        followedBy: [[word, chapter], [anotherWord,chapter]] # a list of all the words that follow this word and their chapters
-    }
-
-total number of words
-    return sum of frequency for all words
-
-number of unique words
-    return len(words.keys())
-
-20 most frequent words
-    Make a maxHeap with max size of 20. Iterate through words and add each to the maxHeap.
-
-20 most frequent words ingnoring x most common english words
-    Make a maxHeap with max size of 20. Iterate through words and add each to the maxHeap if (word not in mostCommon).
-
-20 least frequent words
-    Make a minHeap with max size of 20. Iterate through words and add each to the minHeap.
-
-return an array of the word frequency per chapter
-    return words[word].frequencyByChapter
-
-return the chapter(s) where a quote appears
-    Take a string as input and turn it into a word array
-    look for that quote[0] in the hashMap
-    if that word is followed by quote[1] go to quote[1] in the hashMap
-    repeat until quote[-1] is reached, return this chapter
-    (track the chapter throughout the process)
-
-generate a sentence 
-    start with "The"
-    Pick words["The"].followedBy[random]
-    repeat until you have a 20 word sentence.
-
-
-OPTIONAL
-return the chapter(s) where a mis-quote appears
-    Take a string as input and turn it into a word array
-    Search the book for any permutation of this word array
-
-make a trie out of the sentences of the book and create a sentence completion function
-
-"""
-
 import os
 import re
 import pprint
@@ -56,14 +8,15 @@ import heapq
 
 class TextAnalyzer:
     def __init__(self, filepath=None):
-        self.words = {}
+        self.words = {}     # word -> frequency
+        self.sentences = SentenceTrie()
         self.totalNumberOfWords = 0
         self.totalUniqueWords = 0
         self.numChapters = 0
-        self.mostFrequentWords = []
-        self.leastFrequentWords = []
-        self.filepath = filepath
-        self.fullText = []
+        self.mostFrequentWords = []     # max-heap of all words
+        self.leastFrequentWords = []    # min-heap of all words
+        self.filepath = filepath        # filepath to folder containing all chapters of the book
+        self.fullText = []              # list of chapters of the book's full text
 
         if filepath is not None:
             self.readBook(filepath)
@@ -72,7 +25,12 @@ class TextAnalyzer:
     def readBook(self, filepath):
         """
         Initializes the word map, sentence trie, mostFrequentWords heap, and leastFrequentWords heap.
+        Filepath points to a folder which contains a txt file for each chapter in the book.
+        Warning: There must be a chapter0
         """
+        if filepath is None:
+            return
+
         self.filepath = filepath
         
         for root, directories, files in os.walk(filepath):
@@ -86,14 +44,14 @@ class TextAnalyzer:
                     chapterText = chapterFile.read().replace('\n', ' ')
                     self.fullText[chapterNumber] = chapterText
                     self.buildWordMap(chapterNumber, chapterText)
+                    self.buildSentenceTrie(chapterNumber, chapterText)
 
         self.buildMinMaxWordHeaps()
 
 
     def buildWordMap(self, chapterNumber, chapterText):
         """
-        'filepath' is a string which specifies the filepath to a folder. This folder
-        contains a txt file for each chapter of the book.
+        Strips all punctuation from the text and adds every word to self.words
         """
 
         chapterWords = chapterText.replace('"', '').replace('.','').replace('!','') \
@@ -117,6 +75,13 @@ class TextAnalyzer:
                 if i != len(chapterWords) - 1 and chapterWords[i+1] != " " and chapterWords[i+1] != "":
                     self.words[chapterWords[i]]["followedBy"].append([chapterWords[i+1], chapterNumber])
     
+
+    def buildSentenceTrie(self, chapterNumber, chapterText):
+        sentences = re.split('\? |\! |\. |\... |\?! |\?!', chapterText)
+
+        for sentence in sentences:
+            self.sentences.add(sentence.strip(), chapterNumber)
+
     
     def buildMinMaxWordHeaps(self):
         for word in self.words:
@@ -139,8 +104,10 @@ class TextAnalyzer:
 
         mostFrequentWords = []
 
-        for i in range(20):
+        i = 0 
+        while i < len(maxHeapCopy) and i < 20:
             mostFrequentWords.append(heapq.heappop(maxHeapCopy))
+            i += 1
 
         for word in mostFrequentWords:
             word[0] *= -1
@@ -164,7 +131,7 @@ class TextAnalyzer:
             maxHeapCopy.append([ word[0], word[1] ])
 
         mostFrequentWords = []
-        while len(mostFrequentWords) < 20:
+        while len(mostFrequentWords) < len(maxHeapCopy) and len(mostFrequentWords) < 20:
             word = heapq.heappop(maxHeapCopy)
             if word[1].lower() not in mostFrequentEnglishWords and word[1] not in mostFrequentEnglishWords:
                 word[0] *= -1
@@ -186,15 +153,15 @@ class TextAnalyzer:
 
         count = 0
         leastFrequentWords = []
-        while minHeapCopy[0][0] == 1 or count < 20:
+        while len(minHeapCopy) > 0 and (minHeapCopy[0][0] == 1 or count < 20):
             leastFrequentWords.append(heapq.heappop(minHeapCopy))
             count += 1
 
-        if len(leastFrequentWords) == 20:
+        if len(leastFrequentWords) <= 20:
             return leastFrequentWords
 
         leastFrequentWordsEdited = []
-        while len(leastFrequentWordsEdited) < 20:
+        while len(leastFrequentWordsEdited) < len(minHeapCopy) and len(leastFrequentWordsEdited) < 20:
             index = random.randrange(0, len(leastFrequentWords))
             leastFrequentWordsEdited.append(leastFrequentWords[index])
             leastFrequentWords.pop(index)
@@ -204,7 +171,7 @@ class TextAnalyzer:
     
     def getFrequencyOfWord(self, word):
         if word not in self.words:
-            return [0]*len(self.numChapters)
+            return [0] * self.numChapters
         
         return self.words[word]["frequencyByChapter"]
 
@@ -216,16 +183,9 @@ class TextAnalyzer:
 
         chapters = []
         
-        for root, directories, files in os.walk(self.filepath):
-
-            for filename in files:
-                chapterNumber = int(re.findall(r'\d+', filename)[0])
-
-                with open(self.filepath + "/" + filename) as chapterFile:
-                    chapter = chapterFile.read().replace('\n', ' ')
-
-                    if quote in chapter:
-                        chapters.append(chapterNumber)
+        for i in range(len(self.fullText)):
+            if quote in self.fullText[i]:
+                chapters.append(i)
         
         return chapters
             
@@ -234,6 +194,9 @@ class TextAnalyzer:
         sentence = ["The"]
         
         for i in range(19):
+            if sentence[i] not in self.words:
+                break 
+
             if len(self.words[sentence[-1]]["followedBy"]) == 0:
                 break
             ix = random.randrange(0, len(self.words[sentence[-1]]["followedBy"]))
@@ -257,7 +220,7 @@ class TextAnalyzer:
             .replace('!','').replace('?','').replace(',','').replace(':','') \
             .replace('--'," ").replace('_'," ").split(" ")
 
-        bestMatchingQuote = [-1, -1, "fooBar"] # bestMatchingQuote is [score, chapter, quote]
+        bestMatchingQuote = [-1, -1, None] # bestMatchingQuote is [score, chapter, quote]
 
         for i in range(len(self.fullText)):
             start = 0
@@ -295,7 +258,10 @@ class TextAnalyzer:
         y_axes = []
         
         for word in words:
-            y_axes.append(self.words[word]["frequencyByChapter"])
+            if word in self.words:
+                y_axes.append(self.words[word]["frequencyByChapter"])
+            else:
+                y_axes.append([0]*len(x_axis))
 
         for y in y_axes:
             plt.plot(x_axis, y)
@@ -324,23 +290,66 @@ class TextAnalyzer:
         return mostFrequentWords
 
 
+    def finishSentence(self, sentence):
+        """
+        Returns a list of all the sentences that start with 'sentence' along with their chapters.
+        Returns None if no sentences start with 'sentence'.
+        """
+        sentenceList = sentence.replace("\n"," ").split(" ")
+        currentNode = self.sentences.head
+
+        for word in sentenceList:
+            childIx = currentNode.indexOfChild(word)
+
+            if(childIx == -1):
+                return None
+            
+            currentNode = currentNode.children[childIx]
+        
+        if len(currentNode.children) == 0:
+            return [sentence, -1]
+        
+        sentenceFinishers = []
+
+        for child in currentNode.children:
+            self.finishSentence_helper(child, sentence + " ", sentenceFinishers)
+
+        return sentenceFinishers
+
+
+    def finishSentence_helper(self, currentNode, sentence, sentenceFinishers):
+        sentence += currentNode.word + " "
+
+        if len(currentNode.children) == 0:
+            sentenceFinishers.append([sentence, currentNode.chapterNumber])
+        
+        else:
+            if currentNode.endsSentence:
+                sentenceFinishers.append([sentence, currentNode.chapterNumber])
+            
+            for child in currentNode.children:
+                self.finishSentence_helper(child, sentence, sentenceFinishers)
+
+
 
 class SentenceTrieNode:
-    def __init__(self, word=""):
+    def __init__(self, word="", chapterNumber=None):
         self.word = word
         self.endsSentence = False
+        self.chapterNumber = chapterNumber
         self.children = []
 
 
     def indexOfChild(self, word):
-        if word in self.children:
-            return self.children.index(word)
+        for i in range(len(self.children)):
+            if self.children[i].word == word:
+                return i
 
         return -1
 
 
-    def addChild(self, word):
-        self.children.append(SentenceTrieNode(word))
+    def addChild(self, word, chapterNumber=None):
+        self.children.append(SentenceTrieNode(word, chapterNumber))
 
 
 
@@ -351,35 +360,39 @@ class SentenceTrie:
         self.numSentences = 0
 
 
-    def print(self):
-        for child in self.head.children:
-            self.print_helper(child, "")
+    def printSentences(self, node=None):
+        if node is None:
+            node = self.head
+
+        for child in node.children:
+            self.printSentences_helper(child, "")
         print()
 
     
-    def print_helper(self, currentNode, sentence):
+    def printSentences_helper(self, currentNode, sentence):
         sentence += currentNode.word + " "
 
         if len(currentNode.children) == 0:
-            print(sentence)
+            print(sentence, currentNode.chapterNumber)
         
         else:
             if currentNode.endsSentence:
-                print(sentence)
+                print(sentence, currentNode.chapterNumber)
             
             for child in currentNode.children:
-                self.print_helper(child, sentence)
+                self.printSentences_helper(child, sentence)
 
     
-    def add(self, sentence):
-        sentence = sentence.replace("\n"," ").split(" ")
+    def add(self, sentence, chapterNumber=None):
+        sentence = sentence.split(" ")
         currentNode = self.head
+        self.numSentences += 1
 
         for i in range(len(sentence)):
             childIx = currentNode.indexOfChild(sentence[i])
-            
+
             if childIx == -1:
-                currentNode.addChild(sentence[i])
+                currentNode.addChild(sentence[i], chapterNumber)
                 currentNode = currentNode.children[len(currentNode.children)-1]
                 
                 if i == len(sentence)-1:
@@ -392,55 +405,28 @@ class SentenceTrie:
                 
                 if i == len(sentence)-1:
                     currentNode.endsSentence = True
-
-
-    def finishSentence(self, sentence):
-        """
-        Returns a list of all the sentences that start with 'sentence'.
-        Returns None if no sentences start with 'sentence'.
-        """
-        sentenceList = sentence.replace("\n"," ").split(" ")
-        currentNode = self.head
-
-        for word in sentenceList:
-            childIx = currentNode.indexOfChild(word)
-
-            if(childIx == -1):
-                return None
-            
-            currentNode = currentNode.children[childIx]
-        
-        if len(currentNode.children) == 0:
-            return [sentence]
-        
-        childSentences = self.getChildSentences(currentNode)
-
         
 
 
 if __name__ == "__main__":
-    myBook = TextAnalyzer("./ThePictureOfDorianGray")
+    myBook = TextAnalyzer("ThePictureOfDorianGray")
 
-    # print("Number of words:" , myBook.getTotalNumberOfWords())
-    # print("Number of unique words:" , myBook.getTotalUniqueWords())
-    # print("Most Frequent words:" , myBook.get20MostFrequentWords())
-    # print("Most Frequent words(100):" , myBook.get20MostInterestingFrequentWords())
-    # print("Most Frequent words(300):" , myBook.get20MostInterestingFrequentWords(300))
-    # print("Least frequent words:" , myBook.get20LeastFrequentWords())
-    # print("Chapter frequency of 'Dorian':" , myBook.getFrequencyOfWord("Dorian"))
-    # print("Chapter of quote 'Dorian Gray'", myBook.getChapterQuoteAppears("Dorian Gray"))
-    # print("Chapter of quote 'Dorian Gray is'", myBook.getChapterQuoteAppears("Dorian Gray is"))
-    # print("Chapter of quote 'Dorian Gray is to me simply a motive in art.'",
-    #     myBook.getChapterQuoteAppears("Dorian Gray is to me simply a motive in art.")
-    # )
-    # print("Generated sentence:" , myBook.generateSentence())
-    print(myBook.findClosestMatchingQuote("eternal pathos of the human tragedy"))
+    print("Number of words:" , myBook.getTotalNumberOfWords())
+    print("Number of unique words:" , myBook.getTotalUniqueWords())
+    print("Most Frequent words:" , myBook.get20MostFrequentWords())
+    print("Most Frequent words(100):" , myBook.get20MostInterestingFrequentWords())
+    print("Most Frequent words(300):" , myBook.get20MostInterestingFrequentWords(300))
+    print("Least frequent words:" , myBook.get20LeastFrequentWords())
+    print("Chapter frequency of 'Dorian':" , myBook.getFrequencyOfWord("Dorian"))
+    print("Chapter of quote 'Dorian Gray'", myBook.getChapterQuoteAppears("Dorian Gray"))
+    print("Chapter of quote 'Dorian Gray is'", myBook.getChapterQuoteAppears("Dorian Gray is"))
+    print("Chapter of quote 'Dorian Gray is to me simply a motive in art.'",
+        myBook.getChapterQuoteAppears("Dorian Gray is to me simply a motive in art.")
+    )
+    print("Generated sentence:" , myBook.generateSentence())
+    print(myBook.findClosestMatchingQuote("eternal pathos human tragedy"))
+    print(myBook.finishSentence("Basil"))
+    print(myBook.finishSentence("Basil had"))
+    print(myBook.finishSentence("Basil had painted"))
 
-    # sentences = SentenceTrie()
-    # sentences.add("hello world!")
-    # sentences.add("hello everyone in the world?")
-    # sentences.add("hello world everywhere...")
-    # sentences.add("hello, world")
-    # sentences.print()
-
-    myBook.plotFrequencyOfWords(["eyes"])
+    myBook.plotFrequencyOfWords(["love", "beautiful"])
