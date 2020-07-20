@@ -1,0 +1,130 @@
+TextAnalyzer
+	The TextAnalyzer class analyzes the text of a book. The class features several methods which return interesting information about the book. The class is located in TextAnalyzer.py and unit tests are in TextAnalyzer_test.py.
+
+__init__()
+myBook = TextAnalyzer()
+myBook = TextAnalyzer(“ThePictureOfDorianGray”) 
+
+A TextAnalyzer class instance can be created by passing the name of a folder to the class constructor. The folder must contain a txt file for each chapter of the book and must contain a chapter 0. It is up to the user on how to separate the chapters and whether to include the preface, prologue, epilogue, etc.
+
+
+readBook(filepath)
+myBook.readBook(“ThePictureOfDorianGray”)
+
+	This method calls the functions which initialize all of the data structures which are used throughout the other methods in the TextAnalyzer class. readBook() scans the input filepath for txt files and sends the book chapters to the class data structure builders. It also concatenates all of the text of the book stored as self.fullText.
+
+
+buildWordMap()
+	This method is used by readBook() to build a map of all of the unique words in the book which is stored as self.words. This method also counts the number of words, stored as self.totalNumberOfWords, and number of unique words in the book, stored as self.totalUniqueWords. The keys of self.words are the unique words in the book, and the values are a map which contains the words total frequency, the words frequency by chapter, and all of the words that follow that word along with the corresponding chapter.
+
+
+buildSentenceTrie()
+	This method is used by readBook() to build a trie of all of the sentences in the book which is stored as self.sentences. Each node in the trie is a single word, and nodes that end a sentence contain the chapter that the sentence is found in.
+
+
+buildMinMaxWordHeaps()
+	This method builds a min-heap and a max-heap of all of the words in self.words sorted by the total frequency of the word in the book. The heaps are stored as self.leastFrequentWords and self.mostFrequentWords.
+
+
+getTotalNumberOfWords()
+	Returns self.totalNumberOfWords
+
+
+getTotalUniqueWords()
+	Returns self.totalUniqueWords
+
+
+get20MostFrequentWords()
+	Returns a list of the top 20 words with the highest frequencies. Each entry in the list is a two-element list with the frequency and the word.
+
+
+get20MostInterestingFrequentWords(numWords)
+	Returns a list of the top 20 words with the highest frequencies, ignoring the top numWords most common English words. Each entry in the list is a two-element list with the frequency and the word.  The most common English words are made from mostCommonWords.txt.
+
+
+get20LeastFrequentWords()
+	Returns a list of the top 20 words with the highest frequencies. If there are more than 20 words with a frequency of 1 it randomly selects 20 of them. Each entry in the list is a two-element list with the frequency and the word.
+
+
+getFrequencyOfWord(word)
+	Uses self.words to return the frequency by chapter of a word.
+
+
+getChapterQuoteAppears(quote)
+	This method scans self.fullText and returns the chapter that contains the quote. If the quote is not in self.fullText this method returns -1. The quote must be an exact match.
+
+
+generateSentence()
+	This method returns a 20 word long sentence. Each entry in self.words contains a list of all of the words that follow that entry in the book. This method starts with the word ‘The’ and chooses a random word from self.words[‘The’].followedBy and concatenates this to the generated sentence. The random word chosen is used as the key for the next iteration of the process, which continues until the generated sentence is 20 words long.
+
+
+findClosestMatchingQuote(quote)
+	This method searches self.fullText to find a section of text which matches the input quote most closely. It does this by scanning sections of the text which are twice the length of the input quote. It gives each section a score based on how similar it is to the quote. It then returns the section of the text with the highest score, along with it’s chapter number.
+
+
+printWordMap()
+	This method uses the pprint module to print self.words in a legible way. This is useful for debugging.
+
+
+plotFrequencyOfWords(words)
+	This method receives a list of words and uses matplotlib module to create a plot of the frequency of each word’s use in each chapter of the book. 
+
+
+getMostFrequentEnglishWords(numWords)
+	This method references mostCommonWords.txt to return a list of the top numWords most common English words. This is a helper function for get20MostInterestingFrequentWords().
+
+
+finishSentence(sentence)
+	This method uses self.sentences, which is an instance of SentenceTrie, to return a list of every sentence in the book that begins with the input sentence.
+
+
+finishSentence_helper(currentNode, sentence, sentenceFinishers)
+	This method is used by finishSentence() to recursively build a sentence from the currentNode. When a sentence is finished it is added to sentenceFinishers.
+
+
+
+
+
+
+SentenceTrieNode
+	Class SentenceTrieNode is used by class SentenceTrie.
+
+
+__init__(word, chapter)
+node = SentenceTrieNode(“Dorian”, 1)
+ 	This method initializes the class variables: a single word, self.word, a flag for whether it is the end of a sentence, self.endsSentence, the chapter that its sentence belongs to, self.chapterNumber, and a list of it’s child nodes, self.children.
+
+
+indexOfChild(word)
+	This method returns the index of input word in self.children. If self.children does not contain input word, then this method returns -1.
+
+
+addChild(word, chapterNumber)
+	Creates a SentenceTrieNode instance and adds it to self.children
+
+
+
+
+
+
+
+
+
+SentenceTrie
+	Uses class SentenceTrieNode to build a trie of sentences. 
+
+
+__init__()
+	Initializes the class variables: a null SentenceTrieNode for the head of the trie, self.head, the number of word nodes in the trie, self.numWords, and the number of sentences in the trie, self.numSentences.
+
+
+printSentences(node)
+	Prints all of the sentences in the trie starting from node.
+
+
+printSentences_helper(currentNode, sentence)
+	Used by printSentences() to recursively print the sentences which begin from currentNode.
+
+
+add(sentence, chapterNumber)
+	This method adds a sentence to the trie. It turns the input sentence into a list of words and adds these words to the try where appropriate, along with their chapter number. 

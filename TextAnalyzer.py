@@ -429,4 +429,4 @@ if __name__ == "__main__":
     print(myBook.finishSentence("Basil had"))
     print(myBook.finishSentence("Basil had painted"))
 
-    myBook.plotFrequencyOfWords(["love", "beautiful"])
+    myBook.plotFrequencyOfWords(["love", "death"])
